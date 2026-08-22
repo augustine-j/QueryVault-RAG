@@ -1,52 +1,86 @@
-from pypdf import PdfReader
 from app.chunker import chunk_text
-from app.embeddings import create_embeddings,model
-from app.vector_store import create_index,search
-from app.rag import ask_llm
+from app.config import CHUNK_OVERLAP, CHUNK_SIZE, TOP_K
+from app.embeddings import create_embeddings, create_query_embedding
+from app.extraction import extract_text
+from app.rag import NOT_FOUND_MESSAGE, ask_llm
+from app.vector_store import delete_document, search, upsert_document
+
+NO_DOCUMENT_MESSAGE = (
+    "You have not uploaded any documents yet. Add a PDF or an image from the sidebar "
+    "and I will answer questions about it."
+)
+
 
 class RAGService:
+    def ingest(
+        self,
+        user_id: int,
+        document_id: int,
+        filename: str,
+        data: bytes,
+        content_type: str | None,
+    ) -> tuple[int, str]:
+        """Extract, chunk, embed and store one file. Returns (chunk_count, kind)."""
+        text, kind = extract_text(data, filename, content_type)
+        chunks = chunk_text(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
+        embeddings = create_embeddings(chunks)
+        upsert_document(user_id, document_id, filename, chunks, embeddings)
+        return len(chunks), kind
 
-    def __init__(self):
-        self.chunks = []
-        self.index = None
+    def remove(self, user_id: int, document_id: int) -> None:
+        delete_document(user_id, document_id)
 
-    def ingest_pdf(self,pdf_path):
-        reader = PdfReader(pdf_path)
-        text =""
-        
-        for page in reader.pages:
-            text+= page.extract_text()+"\n"
-        
-        self.chunks = chunk_text(text,chunk_size=1000,overlap=100) 
-        embeddings = create_embeddings(self.chunks)
-        self.index = create_index(embeddings)
-        print(f"Loaded {len(self.chunks)} chunks")
+    def ask(
+        self,
+        user_id: int,
+        question: str,
+        document_id: int | None = None,
+        history: list[dict] | None = None,
+    ) -> dict:
+        matches = search(
+            user_id,
+            create_query_embedding(self._retrieval_query(question, history)),
+            k=TOP_K,
+            document_id=document_id,
+        )
 
+        if not matches:
+            return {"answer": NO_DOCUMENT_MESSAGE, "sources": []}
 
-    def ask(self,question):
-
-        if self.index is None:
-            return{
-                "answer":"No document has been uploaded yet.",
-                "sources":[]
+        sources = [
+            {
+                "chunk_id": match.metadata.get("chunk_id", 0),
+                "text": match.metadata.get("text", ""),
+                "filename": match.metadata.get("filename"),
+                "score": getattr(match, "score", None),
             }
+            for match in matches
+        ]
 
-        query_embedding = model.encode(question)
+        context = "\n\n".join(source["text"] for source in sources)
+        answer = ask_llm(question, context, history=history)
 
-        distances,results = search(self.index,query_embedding,k=5)
-        context =""
-        for item in results:
-            context+=self.chunks[item] + "\n\n"
-        answer = ask_llm(question,context)
+        return {"answer": answer, "sources": sources}
 
-        sources = []
-        for items in results:
-            sources.append({
-                "chunk_id":int(items),
-                "text":self.chunks[items]
-            })
+    @staticmethod
+    def _retrieval_query(question: str, history: list[dict] | None) -> str:
+        """Prepend the previous question so follow-ups still retrieve something.
 
-        return {
-            "answer":answer,
-            "sources":sources
-        }
+        "and what about the second one?" carries almost no searchable signal on its
+        own; pairing it with the preceding question recovers the topic without
+        spending an extra LLM call on query rewriting.
+        """
+        if not history:
+            return question
+        previous = next(
+            (
+                turn["content"]
+                for turn in reversed(history)
+                if turn["role"] == "user" and turn["content"] != question
+            ),
+            None,
+        )
+        return f"{previous} {question}" if previous else question
+
+
+__all__ = ["RAGService", "NOT_FOUND_MESSAGE", "NO_DOCUMENT_MESSAGE"]

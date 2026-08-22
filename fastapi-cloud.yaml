@@ -1,0 +1,3 @@
+# FastAPI Cloud configuration
+# https://fastapi.cloud/docs
+app: app.main:app

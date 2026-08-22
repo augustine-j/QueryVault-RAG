@@ -1,308 +1,95 @@
-# RAG Q&A System
+# RAG Document Chat
 
-## Overview
+A deployable, multi-user document question-answering app. Each account has private
+conversation threads and private document vectors; PDFs and images are indexed for
+grounded Gemini answers.
 
-This project implements a Retrieval-Augmented Generation (RAG) system for answering questions from the AWS Customer Agreement PDF. The application combines semantic search, a local LLM, SQL-based usage logging, and a web dashboard.
+## What it does
 
-The system allows users to:
+- Email/password accounts secured with bcrypt and signed JWTs.
+- ChatGPT-style conversation history: new chats, automatic titles, revisit, and delete.
+- Upload PDFs plus PNG, JPEG, and WebP images. Images are transcribed and described by
+  Gemini vision before text embeddings are stored.
+- Per-user Pinecone namespaces and per-document filters, so one account cannot search
+  another account's documents.
+- A Streamlit chat UI with document selection and collapsible citations.
 
-* Upload and process a PDF document
-* Ask questions about the document
-* View generated answers with supporting source chunks
-* Analyze system usage through an analytics dashboard
+## Local setup
 
----
+Use Python 3.11+ and create a virtual environment. Install backend requirements, copy
+`.env.example` to `.env`, then provide Gemini, Pinecone, and JWT values.
 
-## Technology Stack
-
-### Backend
-
-* FastAPI
-* Python
-
-### Retrieval Pipeline
-
-* Sentence Transformers - all-MiniLM-L6-v2
-* FAISS
-
-### LLM
-
-* Ollama (Local Model) - llama3.2:3b
-
-### Database
-
-* SQLite
-* SQLAlchemy
-
-### Frontend
-
-* Streamlit
-
----
-
-## Project Structure
-
-```text
-RAG-QA-SYSTEM
-│
-├── app
-│   ├── models
-│   ├── routers
-│   ├── chunker.py
-│   ├── database.py
-│   ├── dependecies.py
-│   ├── embeddings.py
-│   ├── main.py
-│   ├── rag_service.py
-│   ├── rag.py
-│   ├── store_getQuery.py
-│   └── vector_store.py
-│
-├── frontend
-│   └── app.py
-│
-├── requirements.txt
-└── README.md
-
+```powershell
+venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8001
 ```
 
+In a second terminal, install the small frontend dependency set and run Streamlit:
 
-## Architecture Overview
-
-PDF Document
-
-↓
-
-Text Extraction using PdfReader
-
-↓
-
-Chunking
-
-↓
-
-Embedding Generation using SentenceTransformer(all-MiniLM-L6-v2)
-
-↓
-
-FAISS Vector Store
-
--------------------------------------------------------------------
-User Question
-
-↓
-
-Question Embedding
-
-↓
-
-FAISS Similarity Search
-
-↓
-
-Top-K Retrieval
-
-↓
-
-Prompt Construction
-
-↓
-
-Ollama LLM
-
-↓
-
-Generated Answer + Sources
-
-↓
-
-SQLite Logging
-
-↓
-
-Analytics Endpoint
-
----
-
-## Setup Instructions
-
-### 1. Clone Repository
-
-```bash
-git clone https://github.com/augustine-j/RAG-based-Document-Q-A-System-with-Analytics-Dashboard-.git
-cd RAG-QA-SYSTEM
+```powershell
+venv\Scripts\python.exe -m pip install -r frontend/requirements.txt
+venv\Scripts\python.exe -m streamlit run frontend/app.py
 ```
 
-### 2. Create Virtual Environment
+The API is documented locally at `http://127.0.0.1:8001/docs`; the UI defaults to that
+same address. Set `API_BASE_URL` when the API is hosted elsewhere.
 
-```bash
-python -m venv venv
+## Configuration
+
+`DATABASE_URL` defaults to `sqlite:///./rag.db` for local work. In production, set it
+to a durable Supabase PostgreSQL URL: Render free web-service storage is ephemeral.
+
+For Supabase, use the **Session pooler** connection string from
+**Project Settings → Database → Connection string → Session pooler**:
+
+```
+postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
 ```
 
-### 3. Activate Virtual Environment
+The tables (`users`, `conversations`, `messages`, `documents`) are created
+automatically on first startup via `Base.metadata.create_all`. If you prefer to
+create them manually, run the app once against Supabase or use the SQL Editor.
 
-Windows:
+Required production variables are `GEMINI_API_KEY`, `PINECONE_API_KEY`,
+`PINECONE_INDEX_HOST`, `JWT_SECRET`, `DATABASE_URL`, and `CORS_ORIGINS`. See
+`.env.example` for optional model, retrieval, and upload settings. Generate a unique,
+long `JWT_SECRET`; the API intentionally refuses to start without one.
 
-```bash
-venv\Scripts\activate
+## Deployment
+
+### API — FastAPI Cloud
+
+Deploy the API to [FastAPI Cloud](https://fastapi.cloud):
+
+1. Push this repository to GitHub.
+2. Log in to [fastapi.cloud](https://fastapi.cloud) and create a new project.
+3. Connect your GitHub account and select this repository.
+4. Set the required environment variables in the dashboard:
+   - `GEMINI_API_KEY`
+   - `PINECONE_API_KEY`
+   - `PINECONE_INDEX_HOST`
+   - `JWT_SECRET`
+   - `DATABASE_URL` (your Supabase Session pooler URL)
+   - `CORS_ORIGINS` (your Streamlit app URL, e.g. `https://your-app.streamlit.app`)
+5. Deploy. The app entry point is `app.main:app` (see `fastapi-cloud.yaml`).
+
+### Frontend — Streamlit Community Cloud
+
+Deploy `frontend/app.py` on Streamlit Community Cloud. Add this Streamlit secret:
+
+```toml
+API_BASE_URL = "https://your-fastapi-cloud-app.fastapi.app"
 ```
 
-### 4. Install Dependencies
+The frontend uses a 120-second API timeout and presents a friendly retry message.
 
-```bash
-pip install -r requirements.txt
+## Tests
+
+The API tests run without Gemini or Pinecone credentials by replacing those external
+boundaries with an in-memory fake:
+
+```powershell
+venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+venv\Scripts\python.exe -m pytest -q
 ```
-
-### 5. Install And Run Ollama
-
-Download and install Ollama.
-
-Pull the model llama3.2:3b :
-
-```bash
-ollama pull llama3.2:3b
-```
-Run the model
-
-```bash
-ollama run llama3.2:3b
-```
-
-
-### 6. Run FastAPI Backend
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Backend URL:
-
-```text
-http://127.0.0.1:8000
-```
-
-### 7. Run Streamlit Frontend
-
-Open another terminal:
-
-```bash
-streamlit run frontend/app.py
-```
-
-Frontend URL:
-
-```text
-http://localhost:8501/
-```
-
----
-
-## API Endpoints
-
-### POST /ingest
-
-Processes and indexes the uploaded PDF document.
-
-### POST /ask
-
-Accepts a user question and returns:
-
-* Generated Answer
-* Source Chunks
-
-### GET /analytics
-
-Returns:
-
-* Most Frequently Asked Questions
-* Queries With No Answer Found
-* Average Response Latency
-* total queries
-* successful_answers
-* failed_answers
-* sucess_rate
-
-
----
-
-## Design Decisions
-
-### Chunking Strategy
-
-* Chunk Size: 1000 characters
-* Overlap: 100 characters
-
-This configuration was selected to preserve context while maintaining retrieval efficiency.
-
-### Embedding Model
-
-* all-MiniLM-L6-v2
-
-Chosen because it is lightweight, efficient, and produces high-quality semantic embeddings.
-
-### Vector Store
-
-* FAISS
-
-Chosen for fast local similarity search without requiring external infrastructure.
-
-### LLM Choice
-
-* Ollama Local Model llama3.2:3b
-
-Chosen to avoid external API costs and enable completely local execution.
-
-### Retrieval Strategy
-
-* Top-K = 5
-
-The five most relevant chunks are retrieved and supplied to the language model as context.
-
----
-
-## Edge Cases Handled
-
-* Empty Questions
-* No Document Ingested
-* Invalid File Uploads
-* Out-of-Scope Questions
-
----
-
-## References
-
-The following resources are used for beuilding this project
-
-# FastAPI
-* https://fastapi.tiangolo.com/
-* https://fastapi.tiangolo.com/tutorial/request-files/
-* https://medium.com/@gopinath.v2507/python-fastapi-how-to-connect-fastapi-to-database-203be23c81e9
-
-# Streamlit
-* https://docs.streamlit.io/develop/tutorials/chat-and-llm-apps/build-conversational-apps
-* https://docs.kanaries.net/topics/Streamlit/streamlit-upload-file
-* https://medium.com/@obaff/building-a-website-with-python-fastapi-and-streamlit-418f48c41af2
-
-# LLM Model
-* https://ollama.com/
-# sentence transformer for embeddings 
-* https://www.sbert.net/
-
-# FAISS
-* https://thepythoncode.com/article/semantic-search-engine-faiss-python
-
-# source file
-* AWS Customer Agreement
-
-# AI Assistance
-
-AI-assisted development  were used alongside official documentation, tutorials, and articles during the project for:
-
-* implementation  guidance
-* Understanding framework concepts
-* Architecture discussions
-* Code review and troubleshooting
-
-
-
-

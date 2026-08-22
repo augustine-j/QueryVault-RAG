@@ -1,123 +1,42 @@
 import streamlit as st
-import requests
-import pandas as pd
 
-BASE_URL = "http://127.0.0.1:8000"
+from api import me
+from auth_view import render_auth
+from chat_view import render_chat
+from session import clear_token, create_cookie_manager, load_token
+from styles import inject_css
 
-st.set_page_config(
-page_title="RAG Q&A System",
-page_icon="📄",
-layout="centered"
-)
+st.set_page_config(page_title="RAG Chat", page_icon="💬", layout="wide")
+inject_css()
 
-st.title("📄 RAG Q&A System")
-st.markdown("Ask questions from uploaded PDF documents using Retrieval Augmented Generation.")
+for key, value in {
+    "token": None,
+    "user": None,
+    "conversation_id": None,
+    "conversation_title": "New chat",
+    "messages": [],
+    "document_id": None,
+    "documents": [],
+    "conversations": [],
+    "document_thumbnails": {},
+}.items():
+    st.session_state.setdefault(key, value)
 
+cookie_manager = create_cookie_manager()
+if not st.session_state.token:
+    saved_token = load_token(cookie_manager)
+    if saved_token:
+        st.session_state.token = saved_token
 
-with st.sidebar:
-    st.header("Upload Document")
+if st.session_state.token and not st.session_state.user:
+    ok, payload = me()
+    if ok:
+        st.session_state.user = payload
+    else:
+        clear_token(cookie_manager)
+        st.session_state.token = None
 
-    uploaded_file = st.file_uploader("Choose a PDF file",type=["pdf"])
-
-    if uploaded_file is not None:
-
-        if st.button("Ingest Document"):
-
-            files = {
-                "file": (
-                    uploaded_file.name,
-                    uploaded_file,
-                    "application/pdf"
-                )
-            }
-
-            response = requests.post(f"{BASE_URL}/ingest",files=files)
-
-            if response.status_code == 202:
-                st.success("Document uploaded successfully.")
-            else:
-                st.error("Failed to ingest document.")
-
-
-
-
-question = st.chat_input("Enter your question")
- 
-
-if question:
-        
-
-        with st.chat_message("user"):
-            st.markdown(question)
-
-        with st.chat_message("assistant"):
-             with st.spinner("Searching document..."):
-                  response = requests.post(f"{BASE_URL}/ask",json={"question": question})
-                  data = response.json()
-        st.markdown(data["answer"])
-
-        st.subheader("Sources")
-
-        for source in data["sources"]:
-
-            with st.expander(f"Chunk {source['chunk_id']}"):
-                st.write(source["text"])
-
-
-st.divider()
-
-
-with st.sidebar:
-    st.header("Analytics")
-
-    
-    response = requests.get(f"{BASE_URL}/analytics")
-
-    analytics = response.json()
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-            st.metric(
-            "Total Queries",
-            analytics["total_queries"]
-        )
-    with col2:
-            st.metric(
-            "Successful Answers",
-            analytics["successful_answers"]
-            )
-
-    with col1:
-            st.metric(
-            "Average Response Time",
-            analytics["avarage_response_time"]
-            )
-    with col2:
-            st.metric(
-                "Failed Answers",
-                analytics["failed_answers"]
-            )
-    
-
-
-        
-    st.metric(
-        "Success Rate",
-        f"{analytics['sucess_rate']}%"
-        )
-    
-    
-
-    top_questions_df = pd.DataFrame(analytics["top_questions"])
-
-    st.subheader("Most Frequently Asked Questions")
-    st.table(pd.DataFrame(analytics["top_questions"]))
-    
-    failed_queries_df = pd.DataFrame(analytics["failed_queries"],columns=["Question"])
-
-    st.subheader("Queries With No Answer Found")
-    st.table(pd.DataFrame(analytics["failed_queries"],columns=["Question"]))
-         
-        
-
+if st.session_state.token and st.session_state.user:
+    render_chat(cookie_manager)
+else:
+    render_auth(cookie_manager)
