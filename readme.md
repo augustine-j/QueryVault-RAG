@@ -10,6 +10,9 @@ indexed for grounded Gemini answers.
 - ChatGPT-style conversation history: new chats, automatic titles, revisit, and delete.
 - Upload PDFs, DOCX files, plain text (TXT), plus PNG, JPEG, and WebP images. Images are
   transcribed and described by Gemini vision before text embeddings are stored.
+- When your documents lack the answer, the assistant retries once with Google Search
+  grounding (enabled by default via `ENABLE_SEARCH_FALLBACK`) and clearly labels web-sourced
+  answers; general-knowledge additions are labeled too.
 - Per-user Pinecone namespaces and per-document filters, so one account cannot search
   another account's documents.
 - A Streamlit chat UI with document selection and collapsible citations.

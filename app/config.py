@@ -39,6 +39,11 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", str(60 * 24 * 7)))
 
 # Retrieval / upload limits
 TOP_K = int(os.getenv("TOP_K", "5"))
+SEARCH_FALLBACK = os.getenv("ENABLE_SEARCH_FALLBACK", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
