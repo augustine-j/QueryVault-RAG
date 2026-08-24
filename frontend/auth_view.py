@@ -347,6 +347,27 @@ div[data-baseweb="input"] input::placeholder {
     color: #64748b !important;
 }
 
+/* Password show/hide (eye) toggle */
+
+div[data-baseweb="input"] button[aria-label*="password" i],
+div[data-baseweb="input"] [data-testid^="stTextInput"][data-testid$="Icon"],
+div[data-baseweb="input"] [data-baseweb="icon-button"] {
+    background: transparent !important;
+
+    border: none !important;
+
+    box-shadow: none !important;
+
+    color: #94a3b8 !important;
+
+    padding: 4px 8px !important;
+}
+
+div[data-baseweb="input"] button[aria-label*="password" i]:hover,
+div[data-baseweb="input"] [data-baseweb="icon-button"]:hover {
+    color: #e2e8f0 !important;
+}
+
 
 /* ==========================================================
    BUTTON

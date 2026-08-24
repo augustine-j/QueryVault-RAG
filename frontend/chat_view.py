@@ -66,7 +66,11 @@ def _render_sidebar(cookie_manager) -> None:
                 st.rerun()
 
         st.markdown('<div class="section-label">DOCUMENTS</div>', unsafe_allow_html=True)
-        upload = st.file_uploader("Add PDF or image", type=["pdf", "png", "jpg", "jpeg", "webp"], label_visibility="collapsed")
+        upload = st.file_uploader(
+            "Add PDF, DOCX, TXT, or image",
+            type=["pdf", "docx", "txt", "png", "jpg", "jpeg", "webp"],
+            label_visibility="collapsed",
+        )
         if upload is not None and st.button("Upload document", use_container_width=True):
             upload_bytes = upload.getvalue()
             with st.spinner("Reading and indexing document…"):
@@ -82,6 +86,7 @@ def _render_sidebar(cookie_manager) -> None:
 
         docs = st.session_state.documents
         choices = [None] + [item["id"] for item in docs]
+        kind_icons = {"image": "▧", "pdf": "▣", "docx": "▤", "text": "▢"}
         labels = {None: "All documents", **{item["id"]: f"{item['filename']} ({item['kind']})" for item in docs}}
         current = st.session_state.get("document_id")
         index = choices.index(current) if current in choices else 0
@@ -92,7 +97,7 @@ def _render_sidebar(cookie_manager) -> None:
             thumbnail = st.session_state.get("document_thumbnails", {}).get(item["id"])
             if thumbnail:
                 cols[0].image(thumbnail, width=44)
-            cols[0].caption(f"{'▧' if item['kind'] == 'image' else '▣'} {item['filename']}")
+            cols[0].caption(f"{kind_icons.get(item['kind'], '▣')} {item['filename']}")
             if cols[1].button("×", key=f"delete-document-{item['id']}"):
                 ok, payload = delete_document(item["id"])
                 if ok:
@@ -131,7 +136,7 @@ def _render_empty_state() -> None:
         description = "Your documents are ready. Ask a question below to start a saved conversation."
         examples = "Try: “Summarize this document” · “What are the key obligations?” · “List the important dates”"
     else:
-        description = "Upload a PDF or image from the sidebar, then ask questions grounded in its contents."
+        description = "Upload a PDF, DOCX, TXT, or image from the sidebar, then ask questions grounded in its contents."
         examples = "Your conversations and documents stay private to this account."
     st.markdown(
         f'''<section class="empty-state">

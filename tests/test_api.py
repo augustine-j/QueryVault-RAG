@@ -25,7 +25,16 @@ class FakeRag:
         self.deleted: list[tuple[int, int]] = []
 
     def ingest(self, user_id, document_id, filename, data, content_type):
-        kind = "pdf" if filename.lower().endswith(".pdf") else "image"
+        suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        kind = {
+            ".pdf": "pdf",
+            ".png": "image",
+            ".jpg": "image",
+            ".jpeg": "image",
+            ".webp": "image",
+            ".docx": "docx",
+            ".txt": "text",
+        }.get(suffix, "image")
         return 1, kind
 
     def ask(self, user_id, question, document_id=None, history=None):
@@ -105,15 +114,23 @@ def test_conversations_are_private(client):
     assert client.get("/conversations", headers=authorization(second_token)).json() == []
 
 
-def test_ingest_accepts_pdf_and_image_and_rejects_text(client):
+def test_ingest_accepts_supported_types_and_rejects_others(client):
     token = register(client)["access_token"]
     headers = authorization(token)
     pdf = client.post("/ingest", headers=headers, files={"file": ("one.pdf", b"%PDF-test", "application/pdf")})
     image = client.post("/ingest", headers=headers, files={"file": ("note.png", b"png", "image/png")})
-    text = client.post("/ingest", headers=headers, files={"file": ("note.txt", b"hello", "text/plain")})
+    docx = client.post(
+        "/ingest",
+        headers=headers,
+        files={"file": ("report.docx", b"docx-bytes", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+    )
+    text = client.post("/ingest", headers=headers, files={"file": ("notes.txt", b"hello world", "text/plain")})
+    unsupported = client.post("/ingest", headers=headers, files={"file": ("setup.exe", b"MZ", "application/octet-stream")})
     assert pdf.status_code == 201
     assert image.status_code == 201
-    assert text.status_code == 400
+    assert docx.status_code == 201
+    assert text.status_code == 201
+    assert unsupported.status_code == 400
 
 
 def test_deleting_document_removes_vectors_and_row(client, clean_database):

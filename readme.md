@@ -1,15 +1,15 @@
 # RAG Document Chat
 
 A deployable, multi-user document question-answering app. Each account has private
-conversation threads and private document vectors; PDFs and images are indexed for
-grounded Gemini answers.
+conversation threads and private document vectors; PDFs, DOCX, TXT, and images are
+indexed for grounded Gemini answers.
 
 ## What it does
 
 - Email/password accounts secured with bcrypt and signed JWTs.
 - ChatGPT-style conversation history: new chats, automatic titles, revisit, and delete.
-- Upload PDFs plus PNG, JPEG, and WebP images. Images are transcribed and described by
-  Gemini vision before text embeddings are stored.
+- Upload PDFs, DOCX files, plain text (TXT), plus PNG, JPEG, and WebP images. Images are
+  transcribed and described by Gemini vision before text embeddings are stored.
 - Per-user Pinecone namespaces and per-document filters, so one account cannot search
   another account's documents.
 - A Streamlit chat UI with document selection and collapsible citations.
