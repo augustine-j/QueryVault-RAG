@@ -39,7 +39,7 @@ def _new_chat() -> None:
 
 def _render_sidebar(cookie_manager) -> None:
     with st.sidebar:
-        st.markdown('<div class="app-brand">● RAG Chat</div>', unsafe_allow_html=True)
+        st.markdown('<div class="app-brand">● query vault</div>', unsafe_allow_html=True)
         if st.button("+ New chat", use_container_width=True):
             _new_chat()
 

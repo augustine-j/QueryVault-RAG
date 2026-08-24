@@ -38,7 +38,7 @@ same address. Set `API_BASE_URL` when the API is hosted elsewhere.
 ## Configuration
 
 `DATABASE_URL` defaults to `sqlite:///./rag.db` for local work. In production, set it
-to a durable Supabase PostgreSQL URL: Render free web-service storage is ephemeral.
+to a durable Supabase PostgreSQL URL
 
 For Supabase, use the **Session pooler** connection string from
 **Project Settings → Database → Connection string → Session pooler**:
