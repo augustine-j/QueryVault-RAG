@@ -54,6 +54,27 @@ The tables (`users`, `conversations`, `messages`, `documents`) are created
 automatically on first startup via `Base.metadata.create_all`. If you prefer to
 create them manually, run the app once against Supabase or use the SQL Editor.
 
+### Database security (required)
+
+Supabase flags tables in the `public` schema that do not have Row-Level Security
+(RLS) enabled, because anyone with the project URL and anon key could reach them
+through the Data API. The FastAPI backend is unaffected by enabling RLS — it
+connects as the privileged `postgres` role via the session pooler connection
+string, and table owners bypass RLS.
+
+After first startup against Supabase (or immediately after creating the tables),
+run [`supabase_rls.sql`](supabase_rls.sql) once:
+
+1. Open **SQL Editor** in the Supabase dashboard.
+2. Paste the contents of `supabase_rls.sql` and click **Run**.
+3. Confirm under **Database → Tables** that each table now shows RLS enabled.
+
+No policies are created on purpose: with zero policies, the anon/authenticated
+Data API roles can read no rows. If you never use Supabase client libraries from
+the browser, also consider disabling Data API exposure under **Project Settings →
+API settings**.
+
+
 Required production variables are `GEMINI_API_KEY`, `PINECONE_API_KEY`,
 `PINECONE_INDEX_HOST`, `JWT_SECRET`, `DATABASE_URL`, and `CORS_ORIGINS`. See
 `.env.example` for optional model, retrieval, and upload settings. Generate a unique,
